@@ -78,14 +78,14 @@ export function findFoldRange(messages) {
     if (isTodoToolResult(messages[index])) todoResultIndexes.push(index);
   }
 
-  if (todoResultIndexes.length < 2) return null;
+  if (todoResultIndexes.length < 3) return null;
 
   const firstResult = todoResultIndexes[0];
-  const lastResult = todoResultIndexes[todoResultIndexes.length - 1];
-  const lastCallStart = findToolCallMessageIndex(messages, messages[lastResult].toolCallId, lastResult);
-  if (lastCallStart <= firstResult) return null;
+  const secondToLastResult = todoResultIndexes[todoResultIndexes.length - 2];
+  const secondToLastCallStart = findToolCallMessageIndex(messages, messages[secondToLastResult].toolCallId, secondToLastResult);
+  if (secondToLastCallStart <= firstResult) return null;
 
-  return { firstResult, lastCallStart };
+  return { firstResult, lastCallStart: secondToLastCallStart };
 }
 
 function backlogProjectionMessage(sourceMessage, backlog) {
@@ -120,17 +120,14 @@ function projectRange(messages, backlog, firstResult, lastCallStart) {
 export function projectMagicTodoMessages(messages, backlog) {
   const range = findFoldRange(messages);
   if (!range) return messages;
-  return projectRange(messages, backlog, range.firstResult, range.lastCallStart);
+
+  const foldedBacklog = backlog.length > 0 ? backlog.slice(0, -1) : backlog;
+
+  return projectRange(messages, foldedBacklog, range.firstResult, range.lastCallStart);
 }
 
 export function projectMagicTodoCompactionMessages(messages, backlog, options = {}) {
-  const projected = projectMagicTodoMessages(messages, backlog);
-  if (projected !== messages) return projected;
-  if (!options.foldAfterFirstTodoResult) return messages;
-
-  const firstResult = messages.findIndex(isTodoToolResult);
-  if (firstResult === -1 || firstResult === messages.length - 1) return messages;
-  return projectRange(messages, backlog, firstResult, messages.length);
+  return projectMagicTodoMessages(messages, backlog);
 }
 
 export function restoreBacklogFromBranch(branchEntries) {

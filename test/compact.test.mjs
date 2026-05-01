@@ -36,22 +36,31 @@ test("createProjectedCompactionPreparation folds summarize messages using branch
     toolCall("a"),
     toolResult("a", "initial raw"),
     { role: "assistant", content: [{ type: "text", text: "discard me" }] },
+    toolCall("b"),
+    toolResult("b", "middle"),
+    toolCall("c"),
+    toolResult("c", "latest")
   ]);
   const branchEntries = [
     { type: "message", message: toolResult("a") },
     { type: "message", message: toolResult("b") },
+    { type: "message", message: toolResult("c") },
   ];
 
   const projected = createProjectedCompactionPreparation(
     prep,
-    [{ sequence: 1, timestamp: "t", report: "Backlog report." }],
+    [
+      { sequence: 1, timestamp: "t", report: "Earlier work." },
+      { sequence: 2, timestamp: "t", report: "Backlog report." },
+    ],
     branchEntries,
   );
 
   assert.ok(projected);
   assert.equal(projected.firstKeptEntryId, "keep-1");
-  assert.equal(projected.messagesToSummarize.length, 3);
-  assert.match(projected.messagesToSummarize[2].content[0].text, /Backlog report/);
+  assert.equal(projected.messagesToSummarize.length, 7);
+  assert.match(projected.messagesToSummarize[2].content[0].text, /Earlier work/);
+  assert.doesNotMatch(projected.messagesToSummarize[2].content[0].text, /Backlog report/);
   assert.equal(projected.messagesToSummarize.some(message => JSON.stringify(message).includes("discard me")), false);
   assert.equal(projected.details.magicTodoProjected, true);
 });

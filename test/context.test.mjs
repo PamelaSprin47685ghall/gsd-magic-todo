@@ -16,7 +16,7 @@ const toolResult = (id, text = "ok") => ({
   timestamp: `${id}-result`,
 });
 
-test("findFoldRange folds after first todo result through before last todo call", () => {
+test("findFoldRange folds after first todo result through before second-to-last todo call", () => {
   const messages = [
     { role: "user", content: "start" },
     toolCall("a"),
@@ -25,38 +25,54 @@ test("findFoldRange folds after first todo result through before last todo call"
     { role: "toolResult", toolName: "bash", toolCallId: "bash-1", content: "noise" },
     toolCall("b"),
     toolResult("b"),
+    toolCall("c"),
+    toolResult("c"),
   ];
 
   assert.deepEqual(findFoldRange(messages), { firstResult: 2, lastCallStart: 5 });
 });
 
-test("projectMagicTodoMessages replaces middle context with backlog projection", () => {
+test("projectMagicTodoMessages replaces middle context with backlog projection excluding latest entry", () => {
   const messages = [
     { role: "user", content: "start" },
     toolCall("a"),
     toolResult("a", "initial raw"),
     { role: "assistant", content: [{ type: "text", text: "hidden work" }] },
     toolCall("b"),
-    toolResult("b", "latest state"),
+    toolResult("b", "middle state"),
+    toolCall("c"),
+    toolResult("c", "latest state"),
   ];
-  const projected = projectMagicTodoMessages(messages, [{ sequence: 1, timestamp: "t", report: "Implemented parser." }]);
+  
+  const backlog = [
+    { sequence: 1, timestamp: "t", report: "Implemented parser." },
+    { sequence: 2, timestamp: "t", report: "Fixed bug." },
+    { sequence: 3, timestamp: "t", report: "Added tests." },
+  ];
+  
+  const projected = projectMagicTodoMessages(messages, backlog);
 
-  assert.equal(projected.length, 5);
+  assert.equal(projected.length, 7);
   assert.equal(projected[2].role, "toolResult");
   assert.equal(projected[2].toolCallId, "a");
-  assert.match(projected[2].content[0].text, /Implemented parser/);
+  
+  const backlogText = projected[2].content[0].text;
+  assert.match(backlogText, /Implemented parser/);
+  assert.match(backlogText, /Fixed bug/);
+  assert.doesNotMatch(backlogText, /Added tests/);
+  
   assert.equal(projected[3].role, "assistant");
   assert.equal(projected[3].content[0].type, "toolCall");
   assert.equal(projected[4].toolCallId, "b");
   assert.equal(projected.some(message => JSON.stringify(message).includes("hidden work")), false);
 });
 
-test("projectMagicTodoMessages leaves history unchanged with fewer than two todo results", () => {
-  const messages = [{ role: "user", content: "start" }, toolCall("a"), toolResult("a")];
+test("projectMagicTodoMessages leaves history unchanged with fewer than three todo results", () => {
+  const messages = [{ role: "user", content: "start" }, toolCall("a"), toolResult("a"), toolCall("b"), toolResult("b")];
   assert.equal(projectMagicTodoMessages(messages, []), messages);
 });
 
-test("projectMagicTodoCompactionMessages can fold a summarized prefix when latest todo is kept", () => {
+test("projectMagicTodoCompactionMessages just calls projectMagicTodoMessages", () => {
   const messages = [
     { role: "user", content: "start" },
     toolCall("a"),
@@ -71,9 +87,7 @@ test("projectMagicTodoCompactionMessages can fold a summarized prefix when lates
     { foldAfterFirstTodoResult: true },
   );
 
-  assert.equal(projected.length, 3);
-  assert.match(projected[2].content[0].text, /Completed work report/);
-  assert.equal(projected.some(message => JSON.stringify(message).includes("large discarded middle")), false);
+  assert.equal(projected, messages);
 });
 
 test("restoreBacklogFromBranch reads append-only custom entries", () => {

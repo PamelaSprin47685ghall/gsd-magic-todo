@@ -49,7 +49,7 @@ export function buildBacklogText(backlog) {
     return `${header}\n${entry.report}`;
   });
 
-  return `【Magic Todo Backlog：已完成工作报告】\n${reports.join("\n\n---\n\n")}`;
+  return `[已完成并折叠的工作记录] 以下报告来自被折叠的旧轮次，相关文件已写入磁盘\n${reports.join("\n\n---\n\n")}`;
 }
 
 export function todoToolCallIds(message) {

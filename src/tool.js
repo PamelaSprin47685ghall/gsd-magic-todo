@@ -34,7 +34,7 @@ export const ManageTodoListParams = {
     },
     completedWorkReport: {
       type: "string",
-      description: "Required for write. A brief report of the work just completed before this todo update. For initial planning, state that no implementation work has completed yet and summarize the plan change.",
+      description: "Required for write. A detailed report of the work just completed before this todo update. Must include: 1) what work was done and why, 2) key files read or written (full paths), 3) any gotchas or non-obvious issues discovered, 4) lessons learned or conventions established for future developers. For initial planning, state that no implementation work has completed yet and summarize the plan change. Verbosity is encouraged — vague or one-line reports lose context during folding.",
     },
   },
   required: ["operation"],
@@ -46,7 +46,7 @@ Use this tool for multi-step coding work. Read the list when resuming, write the
 
 Critical write rule:
 - Every write MUST include completedWorkReport.
-- completedWorkReport is the just-completed work report that will be stored forever in Magic Todo's append-only backlog.
+- completedWorkReport is the detailed work report stored forever in Magic Todo's append-only backlog. It must contain: what was done and why, key files read/written (full paths), gotchas discovered, and lessons/conventions for future developers.
 - Do not batch many completed tasks into one vague report; write after meaningful progress.
 - Always provide the full todoList on write. Partial updates are not supported.
 

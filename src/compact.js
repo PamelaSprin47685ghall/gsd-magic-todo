@@ -20,7 +20,15 @@ function countTodoResultsInBranch(branchEntries) {
 }
 
 function sameArrayItems(left, right) {
-  return left.length === right.length && left.every((item, index) => item === right[index]);
+  if (left.length !== right.length) return false;
+  return left.every((item, index) => {
+    const other = right[index];
+    if (item === other) return true;
+    if (typeof item === "object" && typeof other === "object") {
+      return JSON.stringify(item) === JSON.stringify(other);
+    }
+    return false;
+  });
 }
 
 function projectMessages(messages, backlog, branchHasFoldableTodoHistory) {

@@ -93,7 +93,7 @@ export function createTodoState() {
       }
     }
 
-    // First session — no backlog yet, this is expected.
+    return restoredCount;
   }
 
   return {

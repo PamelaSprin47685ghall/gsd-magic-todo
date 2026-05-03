@@ -84,13 +84,14 @@ function findToolCallMessageIndex(messages, toolCallId, beforeIndex) {
   return -1;
 }
 
-export function findFoldRange(messages) {
+export function findFoldRange(messages, options = {}) {
   const todoResultIndexes = [];
   for (let index = 0; index < messages.length; index++) {
     if (isTodoToolResult(messages[index])) todoResultIndexes.push(index);
   }
 
-  if (todoResultIndexes.length < 3) return null;
+  const minResults = options.foldAfterFirstTodoResult ? 2 : 3;
+  if (todoResultIndexes.length < minResults) return null;
 
   const firstResult = todoResultIndexes[0];
   const secondToLastResult = todoResultIndexes[todoResultIndexes.length - 2];
@@ -201,8 +202,8 @@ function projectRange(messages, backlog, firstResult, lastCallStart, firstCallSt
   return projected;
 }
 
-export function projectMagicTodoMessages(messages, backlog) {
-  const range = findFoldRange(messages);
+export function projectMagicTodoMessages(messages, backlog, options = {}) {
+  const range = findFoldRange(messages, options);
   if (!range) return messages;
 
   const foldedBacklog = backlog.length > 0 ? backlog.slice(0, -1) : backlog;
@@ -211,7 +212,7 @@ export function projectMagicTodoMessages(messages, backlog) {
 }
 
 export function projectMagicTodoCompactionMessages(messages, backlog, options = {}) {
-  return projectMagicTodoMessages(messages, backlog);
+  return projectMagicTodoMessages(messages, backlog, options);
 }
 
 export function restoreBacklogFromBranch(branchEntries) {

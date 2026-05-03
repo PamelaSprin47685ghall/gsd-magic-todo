@@ -68,6 +68,7 @@ export function createTodoState() {
   function restoreFromBranch(branchEntries) {
     state.todos = [];
     state.backlog = [];
+    let restoredCount = 0;
 
     for (const entry of branchEntries || []) {
       if (entry?.type === "message") {
@@ -87,9 +88,12 @@ export function createTodoState() {
             report: data.report.trim(),
             stats: data.stats && typeof data.stats === "object" ? data.stats : undefined,
           });
+          restoredCount++;
         }
       }
     }
+
+    // First session — no backlog yet, this is expected.
   }
 
   return {

@@ -11,7 +11,7 @@ export function getMessageText(content) {
       if (typeof block.thinking === "string") return block.thinking;
       return "";
     })
-    .filter(Boolean)
+    .filter(text => text !== undefined && text !== null && text !== "")
     .join("\n");
 }
 
@@ -95,10 +95,10 @@ export function findFoldRange(messages) {
   const firstResult = todoResultIndexes[0];
   const secondToLastResult = todoResultIndexes[todoResultIndexes.length - 2];
   const secondToLastCallStart = findToolCallMessageIndex(messages, messages[secondToLastResult].toolCallId, secondToLastResult);
-  if (secondToLastCallStart <= firstResult) return null; // Malformed message sequence — cannot fold safely
+  if (secondToLastCallStart <= firstResult) return null;
 
   const firstCallStart = findToolCallMessageIndex(messages, messages[firstResult].toolCallId, firstResult);
-  if (firstCallStart < 0 || firstCallStart >= firstResult) return null; // Cannot locate the opening call — skip fold
+  if (firstCallStart < 0 || firstCallStart >= firstResult) return null;
 
   return { firstResult, lastCallStart: secondToLastCallStart, firstCallStart };
 }
@@ -115,8 +115,28 @@ function backlogProjectionMessage(sourceMessage, backlog, userPrompts = []) {
   };
 }
 
+function collectErrors(messages, failedTodoCallIds) {
+  const errors = [];
+  for (const msg of messages) {
+    if (msg?.role === "toolResult" && msg.isError && msg.toolName === TODO_TOOL_NAME) {
+      errors.push(msg);
+    }
+  }
+  return errors;
+}
+
+function buildErrorNotice(errors) {
+  if (errors.length === 0) return null;
+  const lastError = errors[errors.length - 1];
+  const text = typeof lastError.content === "string"
+    ? lastError.content
+    : Array.isArray(lastError.content)
+      ? lastError.content.find(b => b?.type === "text")?.text || "操作失败"
+      : "操作失败";
+  return `[上次操作失败] ${text}`;
+}
+
 function projectRange(messages, backlog, firstResult, lastCallStart, firstCallStart) {
-  // Collect IDs of failed todo tool calls so their call+result pairs are invisible in projection.
   const failedTodoCallIds = new Set();
   for (const msg of messages) {
     if (msg?.role === "toolResult" && msg.toolName === TODO_TOOL_NAME && msg.isError) {
@@ -134,9 +154,9 @@ function projectRange(messages, backlog, firstResult, lastCallStart, firstCallSt
     }
   }
   const backlogMessage = backlogProjectionMessage(messages[firstResult], backlog, userPrompts);
+  const errors = collectErrors(messages, failedTodoCallIds);
+  const errorNotice = buildErrorNotice(errors);
 
-  // Prefix folding: collect user messages before the first todo call and fold them
-  // into a synthetic user message with backlog #1, preserving the [用户在工作期间发送的消息] format
   if (firstCallStart > 0 && backlog.length > 0) {
     const prefixUserPrompts = [];
     for (let index = 0; index < firstCallStart; index++) {
@@ -146,9 +166,13 @@ function projectRange(messages, backlog, firstResult, lastCallStart, firstCallSt
         if (text.trim()) prefixUserPrompts.push(text.trim());
       }
     }
+    const backlogText = buildBacklogText(backlog.slice(0, 1), prefixUserPrompts);
+    const projectedContent = errorNotice
+      ? `${backlogText}\n\n---\n\n${errorNotice}`
+      : backlogText;
     projected.push({
       role: "user",
-      content: [{ type: "text", text: buildBacklogText(backlog.slice(0, 1), prefixUserPrompts) }],
+      content: [{ type: "text", text: projectedContent }],
       magicTodoPrefixProjection: true,
     });
   }
@@ -161,7 +185,6 @@ function projectRange(messages, backlog, firstResult, lastCallStart, firstCallSt
 
     if (index > firstResult && index < lastCallStart) continue;
 
-    // Skip failed todo tool results and the assistant messages that issued them.
     const msg = messages[index];
     if (msg?.role === "toolResult" && msg.isError && msg.toolName === TODO_TOOL_NAME) continue;
     if (msg?.role === "assistant" && Array.isArray(msg.content)) {

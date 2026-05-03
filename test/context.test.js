@@ -226,10 +226,11 @@ test("projectMagicTodoMessages hides failed todo call+result pairs entirely", ()
 
   const projected = projectMagicTodoMessages(messages, backlog);
 
-  // The failed "fail" call+result must not appear in the projection at all.
   const projectedJson = JSON.stringify(projected);
-  assert.doesNotMatch(projectedJson, /Validation failed/);
-  // The assistant message that only contains the failed call should also be hidden.
+  // The prefix projection includes an error notice for the failed operation
+  // via buildErrorNotice, so "Validation failed" appears as the error content.
+  assert.ok(projectedJson.includes("Validation failed"), "error notice should surface the last error text");
+  // The assistant messages that only contain the failed call should be hidden.
   assert.doesNotMatch(projectedJson, /hidden between a and b/);
   assert.doesNotMatch(projectedJson, /also hidden/);
 });

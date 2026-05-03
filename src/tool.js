@@ -63,6 +63,22 @@ function formatReadResult(todos, backlog) {
   return `Current todos:\n${todoText}\n\n${buildBacklogText(backlog)}`;
 }
 
+const USER_FRIENDLY_ERRORS = {
+  completedWorkReport: "A detailed work report describing what was done, why, which files were changed, and any gotchas encountered",
+  todoList: "Todo list format is incorrect, must be an array",
+  id: "Each todo item requires a positive integer ID",
+  title: "Todo item title is required and cannot be empty",
+  description: "Todo item description is required and cannot be empty",
+  status: "Status must be one of: not-started, in-progress, or completed",
+};
+
+function toUserMessage(error) {
+  for (const [key, msg] of Object.entries(USER_FRIENDLY_ERRORS)) {
+    if (error.toLowerCase().includes(key.toLowerCase())) return msg;
+  }
+  return error;
+}
+
 export function createManageTodoListTool(state, pi) {
   return {
     name: "manage_todo_list",
@@ -97,7 +113,7 @@ export function createManageTodoListTool(state, pi) {
 
       if (errors.length) {
         return textResult(
-          `Validation failed:\n${errors.map(error => `  - ${error}`).join("\n")}`,
+          `Validation failed:\n${errors.map(error => `  - ${toUserMessage(error)}`).join("\n")}`,
           { operation: "write", todos: state.readTodos(), backlog: state.readBacklog(), error: errors.join("; ") },
           true,
         );

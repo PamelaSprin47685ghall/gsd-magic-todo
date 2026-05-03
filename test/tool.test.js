@@ -35,7 +35,7 @@ test("write requires completedWorkReport", async () => {
   const result = await tool.execute("call-1", { operation: "write", todoList: [todo()] });
 
   assert.equal(result.isError, true);
-  assert.match(result.content[0].text, /completedWorkReport is required/);
+  assert.match(result.content[0].text, /work report/);
 });
 
 test("write stores todo state and appends report", async () => {

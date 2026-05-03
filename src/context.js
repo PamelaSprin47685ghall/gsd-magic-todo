@@ -70,15 +70,18 @@ export function todoToolCallIds(message) {
 }
 
 function findToolCallMessageIndex(messages, toolCallId, beforeIndex) {
+  // Primary: find the assistant message that issued this specific tool call
   for (let index = beforeIndex - 1; index >= 0; index--) {
     if (todoToolCallIds(messages[index]).includes(toolCallId)) return index;
   }
 
+  // Fallback: find any assistant message with a todo tool call (for older formats)
   for (let index = beforeIndex - 1; index >= 0; index--) {
     if (todoToolCallIds(messages[index]).length > 0) return index;
   }
 
-  return beforeIndex;
+  // No match found — caller must handle this
+  return -1;
 }
 
 export function findFoldRange(messages) {
@@ -92,9 +95,10 @@ export function findFoldRange(messages) {
   const firstResult = todoResultIndexes[0];
   const secondToLastResult = todoResultIndexes[todoResultIndexes.length - 2];
   const secondToLastCallStart = findToolCallMessageIndex(messages, messages[secondToLastResult].toolCallId, secondToLastResult);
-  if (secondToLastCallStart <= firstResult) return null;
+  if (secondToLastCallStart <= firstResult) return null; // Malformed message sequence — cannot fold safely
 
   const firstCallStart = findToolCallMessageIndex(messages, messages[firstResult].toolCallId, firstResult);
+  if (firstCallStart < 0 || firstCallStart >= firstResult) return null; // Cannot locate the opening call — skip fold
 
   return { firstResult, lastCallStart: secondToLastCallStart, firstCallStart };
 }

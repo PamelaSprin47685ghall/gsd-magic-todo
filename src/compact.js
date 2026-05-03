@@ -1,15 +1,14 @@
 import { isTodoToolResult, projectMagicTodoCompactionMessages } from "./context.js";
 
 async function importOfficialCompaction() {
-  try {
-    return await import("@gsd/pi-coding-agent");
-  } catch (_err) {
-    try {
-      return await import("@mariozechner/pi-coding-agent");
-    } catch (_fallbackErr) {
-      return null;
-    }
+  // Try canonical package first, then known fallbacks. The import order
+  // reflects production naming — pi-coding-agent is the primary package.
+  const candidates = ["@gsd/pi-coding-agent", "@mariozechner/pi-coding-agent", "pi-coding-agent"];
+  for (const spec of candidates) {
+    try { return await import(spec); }
+    catch { continue; }
   }
+  return null;
 }
 
 function countTodoResultsInBranch(branchEntries) {

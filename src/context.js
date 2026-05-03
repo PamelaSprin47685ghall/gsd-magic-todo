@@ -23,7 +23,7 @@ export function messageId(message) {
 }
 
 export function isTodoToolResult(message) {
-  return message?.role === "toolResult" && message.toolName === TODO_TOOL_NAME;
+  return message?.role === "toolResult" && message.toolName === TODO_TOOL_NAME && !message.isError;
 }
 
 export function normalizeBacklogEntry(entry, index) {
@@ -116,6 +116,14 @@ function backlogProjectionMessage(sourceMessage, backlog, userPrompts = []) {
 }
 
 function projectRange(messages, backlog, firstResult, lastCallStart, firstCallStart) {
+  // Collect IDs of failed todo tool calls so their call+result pairs are invisible in projection.
+  const failedTodoCallIds = new Set();
+  for (const msg of messages) {
+    if (msg?.role === "toolResult" && msg.toolName === TODO_TOOL_NAME && msg.isError) {
+      failedTodoCallIds.add(msg.toolCallId);
+    }
+  }
+
   const projected = [];
   const userPrompts = [];
   for (let index = firstResult + 1; index < lastCallStart; index++) {
@@ -152,7 +160,18 @@ function projectRange(messages, backlog, firstResult, lastCallStart, firstCallSt
     }
 
     if (index > firstResult && index < lastCallStart) continue;
-    projected.push(messages[index]);
+
+    // Skip failed todo tool results and the assistant messages that issued them.
+    const msg = messages[index];
+    if (msg?.role === "toolResult" && msg.isError && msg.toolName === TODO_TOOL_NAME) continue;
+    if (msg?.role === "assistant" && Array.isArray(msg.content)) {
+      const allFailedTodo = msg.content
+        .filter(block => block?.type === "toolCall" && (block.name === TODO_TOOL_NAME || block.toolName === TODO_TOOL_NAME))
+        .every(block => failedTodoCallIds.has(block.id || block.toolCallId));
+      if (allFailedTodo && msg.content.every(block => block.type === "toolCall")) continue;
+    }
+
+    projected.push(msg);
   }
 
   return projected;

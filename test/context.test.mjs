@@ -182,3 +182,54 @@ test("projectMagicTodoMessages folds prefix before first todo call with user pro
   assert.match(backlogText, /Before start/);
   assert.doesNotMatch(backlogText, /Implemented features/);
 });
+
+test("findFoldRange ignores failed todo results (isError: true)", () => {
+  const messages = [
+    { role: "user", content: "start" },
+    toolCall("a"),
+    toolResult("a"),       // successful
+    { role: "assistant", content: [{ type: "text", text: "work" }] },
+    toolCall("fail"),
+    { role: "toolResult", toolName: "manage_todo_list", toolCallId: "fail", content: [{ type: "text", text: "Validation failed" }], isError: true },
+    { role: "assistant", content: [{ type: "text", text: "retry work" }] },
+    toolCall("b"),
+    toolResult("b"),       // successful
+    toolCall("c"),
+    toolResult("c"),       // successful
+  ];
+
+  // Only 3 successful results (a, b, c) — failed "fail" result is invisible.
+  // Fold range: firstResult=a(2), secondToLastResult=b(8), lastCallStart=b-call(7), firstCallStart=a-call(1)
+  assert.deepEqual(findFoldRange(messages), { firstResult: 2, lastCallStart: 7, firstCallStart: 1 });
+});
+
+test("projectMagicTodoMessages hides failed todo call+result pairs entirely", () => {
+  const messages = [
+    { role: "user", content: "start" },
+    toolCall("a"),
+    toolResult("a", "ok"),
+    { role: "assistant", content: [{ type: "text", text: "hidden between a and b" }] },
+    toolCall("fail"),
+    { role: "toolResult", toolName: "manage_todo_list", toolCallId: "fail", content: [{ type: "text", text: "Validation failed" }], isError: true },
+    { role: "assistant", content: [{ type: "text", text: "also hidden" }] },
+    toolCall("b"),
+    toolResult("b", "mid"),
+    toolCall("c"),
+    toolResult("c", "done"),
+  ];
+
+  const backlog = [
+    { sequence: 1, timestamp: "t", report: "Did a thing." },
+    { sequence: 2, timestamp: "t", report: "Did another." },
+    { sequence: 3, timestamp: "t", report: "Final." },
+  ];
+
+  const projected = projectMagicTodoMessages(messages, backlog);
+
+  // The failed "fail" call+result must not appear in the projection at all.
+  const projectedJson = JSON.stringify(projected);
+  assert.doesNotMatch(projectedJson, /Validation failed/);
+  // The assistant message that only contains the failed call should also be hidden.
+  assert.doesNotMatch(projectedJson, /hidden between a and b/);
+  assert.doesNotMatch(projectedJson, /also hidden/);
+});

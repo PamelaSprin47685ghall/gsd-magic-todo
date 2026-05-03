@@ -1,14 +1,23 @@
 {
   "id": "magic-todo",
   "name": "Magic Todo",
-  "version": "1.0.0",
-  "description": "Todo list tool with append-only work-report backlog and context folding between first and last todo calls.",
+  "version": "5.1.0",
+  "description": "Maintains a structured todo list and durable work backlog while folding older todo context.",
   "tier": "community",
   "requires": {
     "platform": ">=2.29.0"
   },
   "provides": {
-    "tools": ["manage_todo_list"],
-    "hooks": ["session_start", "session_switch", "session_fork", "session_tree", "context", "session_before_compact"]
+    "tools": [
+      "manage_todo_list"
+    ],
+    "hooks": [
+      "session_start",
+      "session_switch",
+      "session_fork",
+      "session_tree",
+      "context",
+      "session_before_compact"
+    ]
   }
 }

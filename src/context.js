@@ -39,17 +39,26 @@ export function normalizeBacklogEntry(entry, index) {
   };
 }
 
-export function buildBacklogText(backlog) {
-  if (!backlog.length) {
+export function buildBacklogText(backlog, userPrompts = []) {
+  if (!backlog.length && !userPrompts.length) {
     return "【Magic Todo Backlog】\n当前还没有已完成工作报告。";
   }
 
-  const reports = backlog.map(entry => {
-    const header = `#${entry.sequence}${entry.timestamp ? ` · ${entry.timestamp}` : ""}`;
-    return `${header}\n${entry.report}`;
-  });
+  const parts = [];
 
-  return `[已完成并折叠的工作记录] 以下报告来自被折叠的旧轮次，相关文件已写入磁盘\n${reports.join("\n\n---\n\n")}`;
+  if (userPrompts.length) {
+    parts.push(`[用户在工作期间发送的消息]\n${userPrompts.join("\n\n")}`);
+  }
+
+  if (backlog.length) {
+    const reports = backlog.map(entry => {
+      const header = `#${entry.sequence}${entry.timestamp ? ` · ${entry.timestamp}` : ""}`;
+      return `${header}\n${entry.report}`;
+    });
+    parts.push(`[已完成并折叠的工作记录] 以下报告来自被折叠的旧轮次，相关文件已写入磁盘\n${reports.join("\n\n---\n\n")}`);
+  }
+
+  return parts.join("\n\n---\n\n");
 }
 
 export function todoToolCallIds(message) {
@@ -88,13 +97,13 @@ export function findFoldRange(messages) {
   return { firstResult, lastCallStart: secondToLastCallStart };
 }
 
-function backlogProjectionMessage(sourceMessage, backlog) {
+function backlogProjectionMessage(sourceMessage, backlog, userPrompts = []) {
   return {
     id: "magic-todo-backlog-projection",
     role: "toolResult",
     toolCallId: sourceMessage.toolCallId,
     toolName: TODO_TOOL_NAME,
-    content: [{ type: "text", text: buildBacklogText(backlog) }],
+    content: [{ type: "text", text: buildBacklogText(backlog, userPrompts) }],
     details: { magicTodoProjection: true, entries: backlog.length },
     timestamp: sourceMessage.timestamp,
   };
@@ -102,7 +111,15 @@ function backlogProjectionMessage(sourceMessage, backlog) {
 
 function projectRange(messages, backlog, firstResult, lastCallStart) {
   const projected = [];
-  const backlogMessage = backlogProjectionMessage(messages[firstResult], backlog);
+  const userPrompts = [];
+  for (let index = firstResult + 1; index < lastCallStart; index++) {
+    const msg = messages[index];
+    if (msg?.role === "user") {
+      const text = getMessageText(msg.content);
+      if (text.trim()) userPrompts.push(text.trim());
+    }
+  }
+  const backlogMessage = backlogProjectionMessage(messages[firstResult], backlog, userPrompts);
 
   for (let index = 0; index < messages.length; index++) {
     if (index === firstResult) {

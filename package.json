@@ -1,18 +1,24 @@
 {
   "name": "gsd-magic-todo",
-  "version": "1.0.0",
-  "description": "Magic todo backlog context folding extension for pi/GSD",
+  "version": "5.1.0",
+  "description": "Todo and append-only work backlog tool with context folding for GSD and pi sessions.",
   "type": "module",
   "exports": "./index.js",
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },
+  "keywords": [
+    "pi-package",
+    "gsd-extension",
+    "todo",
+    "context"
+  ],
   "gsd": {
     "extension": true
   },
   "pi": {
     "extensions": [
-      "index.js"
+      "./index.js"
     ]
   }
 }

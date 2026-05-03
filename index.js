@@ -1,9 +1,17 @@
+import { ensureBundledExtensionPath } from "./src/self-injection.js";
 import { runProjectedOfficialCompaction } from "./src/compact.js";
 import { projectMagicTodoMessages } from "./src/context.js";
 import { createTodoState } from "./src/state.js";
 import { createManageTodoListTool } from "./src/tool.js";
 
+ensureBundledExtensionPath(import.meta.url);
+
+const registeredPluginApis = new WeakSet();
+
 export default function magicTodoPlugin(pi) {
+  if (registeredPluginApis.has(pi)) return;
+  registeredPluginApis.add(pi);
+
   const state = createTodoState();
 
   const restore = (eventName, ctx) => {

@@ -67,9 +67,38 @@ test("projectMagicTodoMessages replaces middle context with backlog projection e
   assert.equal(projected.some(message => JSON.stringify(message).includes("hidden work")), false);
 });
 
-test("projectMagicTodoMessages leaves history unchanged with fewer than three todo results", () => {
-  const messages = [{ role: "user", content: "start" }, toolCall("a"), toolResult("a"), toolCall("b"), toolResult("b")];
-  assert.equal(projectMagicTodoMessages(messages, []), messages);
+test("projectMagicTodoMessages preserves folded user prompts in backlog projection", () => {
+  const messages = [
+    { role: "user", content: "start" },
+    toolCall("a"),
+    toolResult("a", "initial raw"),
+    { role: "user", content: "请修复这个 bug" },
+    { role: "assistant", content: [{ type: "text", text: "hidden work" }] },
+    { role: "user", content: "再帮我优化一下" },
+    toolCall("b"),
+    toolResult("b", "middle state"),
+    toolCall("c"),
+    toolResult("c", "latest state"),
+  ];
+
+  const backlog = [
+    { sequence: 1, timestamp: "t", report: "Implemented parser." },
+    { sequence: 2, timestamp: "t", report: "Fixed bug." },
+  ];
+
+  const projected = projectMagicTodoMessages(messages, backlog);
+
+  assert.equal(projected.length, 7);
+  assert.equal(projected[2].role, "toolResult");
+  assert.equal(projected[2].toolCallId, "a");
+
+  const backlogText = projected[2].content[0].text;
+  assert.match(backlogText, /用户在工作期间发送的消息/);
+  assert.match(backlogText, /请修复这个 bug/);
+  assert.match(backlogText, /再帮我优化一下/);
+  assert.match(backlogText, /Implemented parser/);
+  assert.doesNotMatch(backlogText, /Fixed bug/);
+  assert.doesNotMatch(backlogText, /hidden work/);
 });
 
 test("projectMagicTodoCompactionMessages just calls projectMagicTodoMessages", () => {

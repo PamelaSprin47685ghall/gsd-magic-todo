@@ -51,7 +51,7 @@ Critical write rule:
 - Always provide the full todoList on write. Partial updates are not supported.
 
 Context folding behavior:
-- Later turns will see the first todo result as the backlog and the recent todo operations are preserved in full context.
+- Later turns will see: a synthetic user message (prefix fold) for context before the first todo call, the first todo result as the backlog projection, and the recent todo operations preserved in full context.
 - The detailed context between the first and the second-to-last todo calls is folded away, so completedWorkReport must preserve what future turns need.`;
 
 function textResult(text, details, isError = false) {

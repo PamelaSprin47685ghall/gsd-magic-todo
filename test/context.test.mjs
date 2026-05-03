@@ -29,7 +29,7 @@ test("findFoldRange folds after first todo result through before second-to-last 
     toolResult("c"),
   ];
 
-  assert.deepEqual(findFoldRange(messages), { firstResult: 2, lastCallStart: 5 });
+  assert.deepEqual(findFoldRange(messages), { firstResult: 2, lastCallStart: 5, firstCallStart: 1 });
 });
 
 test("projectMagicTodoMessages replaces middle context with backlog projection excluding latest entry", () => {
@@ -53,6 +53,14 @@ test("projectMagicTodoMessages replaces middle context with backlog projection e
   const projected = projectMagicTodoMessages(messages, backlog);
 
   assert.equal(projected.length, 7);
+  // Prefix fold: user "start" folded into synthetic user message with backlog #1
+  assert.equal(projected[0].role, "user");
+  assert.equal(projected[0].magicTodoPrefixProjection, true);
+  assert.match(projected[0].content[0].text, /用户在工作期间发送的消息/);
+  assert.match(projected[0].content[0].text, /start/);
+  assert.match(projected[0].content[0].text, /Implemented parser/);
+
+  // Middle fold: first todo result replaced by backlog projection
   assert.equal(projected[2].role, "toolResult");
   assert.equal(projected[2].toolCallId, "a");
   
@@ -89,6 +97,13 @@ test("projectMagicTodoMessages preserves folded user prompts in backlog projecti
   const projected = projectMagicTodoMessages(messages, backlog);
 
   assert.equal(projected.length, 7);
+  // Prefix fold: user "start" folded into synthetic user message with backlog #1
+  assert.equal(projected[0].role, "user");
+  assert.equal(projected[0].magicTodoPrefixProjection, true);
+  assert.match(projected[0].content[0].text, /用户在工作期间发送的消息/);
+  assert.match(projected[0].content[0].text, /start/);
+
+  // Middle fold: first todo result replaced by backlog projection with user prompts
   assert.equal(projected[2].role, "toolResult");
   assert.equal(projected[2].toolCallId, "a");
 
@@ -130,4 +145,40 @@ test("restoreBacklogFromBranch reads append-only custom entries", () => {
 
 test("buildBacklogText handles empty backlog", () => {
   assert.match(buildBacklogText([]), /当前还没有/);
+});
+
+test("projectMagicTodoMessages folds prefix before first todo call with user prompts", () => {
+  const messages = [
+    { role: "user", content: "帮我写一个工具" },
+    { role: "assistant", content: [{ type: "text", text: "我先用 todo 管理" }] },
+    toolCall("x"),
+    toolResult("x", "init"),
+    { role: "assistant", content: [{ type: "text", text: "做了很多工作" }] },
+    toolCall("y"),
+    toolResult("y", "mid"),
+    toolCall("z"),
+    toolResult("z", "done"),
+  ];
+
+  const backlog = [
+    { sequence: 10, timestamp: "t", report: "Before start: scoped tool." },
+    { sequence: 11, timestamp: "t", report: "Implemented features." },
+  ];
+
+  const projected = projectMagicTodoMessages(messages, backlog);
+  assert.equal(projected.length, 7);
+
+  // Prefix: user "帮我写一个工具" folded with backlog #10
+  assert.equal(projected[0].role, "user");
+  assert.equal(projected[0].magicTodoPrefixProjection, true);
+  const prefixText = projected[0].content[0].text;
+  assert.match(prefixText, /用户在工作期间发送的消息/);
+  assert.match(prefixText, /帮我写一个工具/);
+  assert.match(prefixText, /Before start/);
+
+  // Middle fold: first result replaced with folded backlog (excludes #11)
+  assert.equal(projected[2].role, "toolResult");
+  const backlogText = projected[2].content[0].text;
+  assert.match(backlogText, /Before start/);
+  assert.doesNotMatch(backlogText, /Implemented features/);
 });

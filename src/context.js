@@ -94,7 +94,9 @@ export function findFoldRange(messages) {
   const secondToLastCallStart = findToolCallMessageIndex(messages, messages[secondToLastResult].toolCallId, secondToLastResult);
   if (secondToLastCallStart <= firstResult) return null;
 
-  return { firstResult, lastCallStart: secondToLastCallStart };
+  const firstCallStart = findToolCallMessageIndex(messages, messages[firstResult].toolCallId, firstResult);
+
+  return { firstResult, lastCallStart: secondToLastCallStart, firstCallStart };
 }
 
 function backlogProjectionMessage(sourceMessage, backlog, userPrompts = []) {
@@ -109,7 +111,7 @@ function backlogProjectionMessage(sourceMessage, backlog, userPrompts = []) {
   };
 }
 
-function projectRange(messages, backlog, firstResult, lastCallStart) {
+function projectRange(messages, backlog, firstResult, lastCallStart, firstCallStart) {
   const projected = [];
   const userPrompts = [];
   for (let index = firstResult + 1; index < lastCallStart; index++) {
@@ -121,7 +123,25 @@ function projectRange(messages, backlog, firstResult, lastCallStart) {
   }
   const backlogMessage = backlogProjectionMessage(messages[firstResult], backlog, userPrompts);
 
-  for (let index = 0; index < messages.length; index++) {
+  // Prefix folding: collect user messages before the first todo call and fold them
+  // into a synthetic user message with backlog #1, preserving the [用户在工作期间发送的消息] format
+  if (firstCallStart > 0 && backlog.length > 0) {
+    const prefixUserPrompts = [];
+    for (let index = 0; index < firstCallStart; index++) {
+      const msg = messages[index];
+      if (msg?.role === "user") {
+        const text = getMessageText(msg.content);
+        if (text.trim()) prefixUserPrompts.push(text.trim());
+      }
+    }
+    projected.push({
+      role: "user",
+      content: [{ type: "text", text: buildBacklogText(backlog.slice(0, 1), prefixUserPrompts) }],
+      magicTodoPrefixProjection: true,
+    });
+  }
+
+  for (let index = firstCallStart; index < messages.length; index++) {
     if (index === firstResult) {
       projected.push(backlogMessage);
       continue;
@@ -140,7 +160,7 @@ export function projectMagicTodoMessages(messages, backlog) {
 
   const foldedBacklog = backlog.length > 0 ? backlog.slice(0, -1) : backlog;
 
-  return projectRange(messages, foldedBacklog, range.firstResult, range.lastCallStart);
+  return projectRange(messages, foldedBacklog, range.firstResult, range.lastCallStart, range.firstCallStart);
 }
 
 export function projectMagicTodoCompactionMessages(messages, backlog, options = {}) {

@@ -234,3 +234,25 @@ test("projectMagicTodoMessages hides failed todo call+result pairs entirely", ()
   assert.doesNotMatch(projectedJson, /hidden between a and b/);
   assert.doesNotMatch(projectedJson, /also hidden/);
 });
+
+test("projectMagicTodoMessages preserves non-todo tool calls in kept range", () => {
+  const messages = [
+    { role: "user", content: "start" },
+    toolCall("a"),
+    toolResult("a", "ok"),
+    { role: "assistant", content: [{ type: "text", text: "hidden work" }] },
+    toolCall("b"),
+    toolResult("b", "mid"),
+    toolCall("c"),
+    toolResult("c", "done"),
+    { role: "assistant", content: [{ type: "toolCall", id: "bash-1", name: "bash", arguments: { command: "ls" } }] },
+    { role: "toolResult", toolName: "bash", toolCallId: "bash-1", content: [{ type: "text", text: "output" }] },
+  ];
+
+  const backlog = [{ sequence: 1, timestamp: "t", report: "Work." }];
+  const projected = projectMagicTodoMessages(messages, backlog);
+
+  const projectedJson = JSON.stringify(projected);
+  assert.ok(projectedJson.includes("bash-1"), "non-todo tool call should be kept");
+  assert.ok(projectedJson.includes("output"), "non-todo tool result should be kept");
+});

@@ -115,7 +115,7 @@ function backlogProjectionMessage(sourceMessage, backlog, userPrompts = []) {
   };
 }
 
-function collectErrors(messages, failedTodoCallIds) {
+function collectErrors(messages) {
   const errors = [];
   for (const msg of messages) {
     if (msg?.role === "toolResult" && msg.isError && msg.toolName === TODO_TOOL_NAME) {
@@ -154,7 +154,7 @@ function projectRange(messages, backlog, firstResult, lastCallStart, firstCallSt
     }
   }
   const backlogMessage = backlogProjectionMessage(messages[firstResult], backlog, userPrompts);
-  const errors = collectErrors(messages, failedTodoCallIds);
+  const errors = collectErrors(messages);
   const errorNotice = buildErrorNotice(errors);
 
   if (firstCallStart > 0 && backlog.length > 0) {
@@ -188,9 +188,10 @@ function projectRange(messages, backlog, firstResult, lastCallStart, firstCallSt
     const msg = messages[index];
     if (msg?.role === "toolResult" && msg.isError && msg.toolName === TODO_TOOL_NAME) continue;
     if (msg?.role === "assistant" && Array.isArray(msg.content)) {
-      const allFailedTodo = msg.content
-        .filter(block => block?.type === "toolCall" && (block.name === TODO_TOOL_NAME || block.toolName === TODO_TOOL_NAME))
-        .every(block => failedTodoCallIds.has(block.id || block.toolCallId));
+      const todoBlocks = msg.content.filter(
+        block => block?.type === "toolCall" && (block.name === TODO_TOOL_NAME || block.toolName === TODO_TOOL_NAME),
+      );
+      const allFailedTodo = todoBlocks.length > 0 && todoBlocks.every(block => failedTodoCallIds.has(block.id || block.toolCallId));
       if (allFailedTodo && msg.content.every(block => block.type === "toolCall")) continue;
     }
 

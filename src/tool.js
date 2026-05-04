@@ -50,16 +50,6 @@ export const ManageTodoListParams = {
     },
   },
   required: ['operation'],
-  anyOf: [
-    {
-      properties: { operation: { const: 'read' } },
-      required: ['operation'],
-    },
-    {
-      properties: { operation: { const: 'write' } },
-      required: ['operation', 'todoList', 'completedWorkReport'],
-    },
-  ],
 }
 
 export const TOOL_DESCRIPTION = `Manage a structured todo list and preserve a compact append-only work backlog.
